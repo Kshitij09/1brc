@@ -19,7 +19,6 @@ package dev.morling.onebrc;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,9 +28,7 @@ public class CalculateAverage_kshitijpatil98 {
         try (Stream<String> lines = Files.lines(Paths.get(MEASUREMENTS_PATH))) {
             var stationMeasurements = lines
                     .parallel()
-                    .map(line -> line.split(";", 2))
-                    .filter(parts -> parts.length == 2)
-                    .map(Measurement::new)
+                    .map(CalculateAverage_kshitijpatil98::parseMeasurement)
                     .collect(
                             Collectors.toConcurrentMap(
                                     m -> m.name,
@@ -47,11 +44,30 @@ public class CalculateAverage_kshitijpatil98 {
     }
 
     private static final String MEASUREMENTS_PATH = "./measurements.txt";
+    private static final char MEASUREMENT_DELIMITER = ';';
+    private static final char DECIMAL_DOT = '.';
 
     record Measurement(String name, double temperature) {
-        public Measurement(String[] parts) {
-            this(parts[0], Double.parseDouble(parts[1]));
+    }
+
+    private static Measurement parseMeasurement(String line) {
+        int delimiterIndex = line.indexOf(MEASUREMENT_DELIMITER);
+        var stationName = line.substring(0, delimiterIndex);
+        var temperature = parseTemperature(line.substring(delimiterIndex + 1));
+        // System.out.printf("parsed %s and %s", stationName, temperature);
+        return new Measurement(stationName, temperature);
+    }
+
+    private static double parseTemperature(String tempString) {
+        var isNegative = tempString.charAt(0) == '-';
+        var digitIndex = (isNegative) ? 1 : 0;
+        double temperature = 0.0;
+        for (; digitIndex < tempString.length(); digitIndex++) {
+            if (tempString.charAt(digitIndex) == DECIMAL_DOT)
+                continue;
+            temperature = temperature * 10 + (tempString.charAt(digitIndex) - '0');
         }
+        return (isNegative) ? -temperature : temperature;
     }
 
     record Stats(double min, double max, double average, int countSoFar) {
@@ -74,7 +90,7 @@ public class CalculateAverage_kshitijpatil98 {
 
         @Override
         public String toString() {
-            return String.format("%.1f/%.1f/%.1f", min, average, max);
+            return String.format("%.1f/%.1f/%.1f", (min / 10f), (average / 10f), (max / 10f));
         }
     }
 }
