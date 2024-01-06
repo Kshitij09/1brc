@@ -20,30 +20,24 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class CalculateAverage_kshitijpatil98 {
     public static void main(String[] args) {
         try (Stream<String> lines = Files.lines(Paths.get(MEASUREMENTS_PATH))) {
-            final ConcurrentHashMap<String, Stats> stats = new ConcurrentHashMap<>(10000);
-            lines
+            var stationMeasurements = lines
                     .parallel()
                     .map(line -> line.split(";", 2))
                     .filter(parts -> parts.length == 2)
-                    .map(parts -> new Measurement(parts[0], Double.parseDouble(parts[1])))
-                    .forEach(measurement -> stats.compute(measurement.name, (_, value) -> {
-                        if (value == null)
-                            return new Stats(measurement);
-                        else {
-                            return new Stats(
-                                    Math.min(value.min, measurement.temperature),
-                                    Math.max(value.max, measurement.temperature),
-                                    (value.average * value.countSoFar + measurement.temperature) / (value.countSoFar + 1),
-                                    value.countSoFar + 1);
-                        }
-                    }));
-            final var sortedStats = new TreeMap<>(stats);
+                    .map(Measurement::new)
+                    .collect(
+                            Collectors.toConcurrentMap(
+                                    m -> m.name,
+                                    Stats::new,
+                                    Stats::merge)
+                    );
+            final var sortedStats = new TreeMap<>(stationMeasurements);
             System.out.println(sortedStats);
         }
         catch (IOException e) {
@@ -55,11 +49,27 @@ public class CalculateAverage_kshitijpatil98 {
     private static final String MEASUREMENTS_PATH = "./measurements.txt";
 
     record Measurement(String name, double temperature) {
+        public Measurement(String[] parts) {
+            this(parts[0], Double.parseDouble(parts[1]));
+        }
     }
 
     record Stats(double min, double max, double average, int countSoFar) {
-        public Stats(Measurement measurement) {
+        public Stats(final Measurement measurement) {
             this(measurement.temperature, measurement.temperature, measurement.temperature, 1);
+        }
+
+        public Double sum() {
+            return average * countSoFar;
+        }
+
+        public static Stats merge(final Stats first, final Stats second) {
+            return new Stats(
+                    Math.min(first.min, second.min),
+                    Math.max(first.max, second.max),
+                    (first.sum() + second.sum()) / (first.countSoFar + second.countSoFar),
+                    first.countSoFar + second.countSoFar
+            );
         }
 
         @Override
