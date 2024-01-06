@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,10 +36,9 @@ public class CalculateAverage_kshitijpatil98 {
                             Collectors.toConcurrentMap(
                                     m -> m.name,
                                     Stats::new,
-                                    Stats::merge)
-                    );
-            final var sortedStats = new TreeMap<>(stationMeasurements);
-            System.out.println(sortedStats);
+                                    Stats::merge,
+                                    ConcurrentSkipListMap::new));
+            System.out.println(stationMeasurements);
         }
         catch (IOException e) {
             System.err.printf("File not found: %s", MEASUREMENTS_PATH);
